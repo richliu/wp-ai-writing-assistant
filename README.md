@@ -1,6 +1,9 @@
 # AI Writing Assistant — WordPress Plugin
 
-AI 寫作助手，整合 DeepSeek / OpenAI 相容 API，提供文章校稿、語氣調整、段落級 AI 工具。
+專為個人用戶設計的簡單版本 AI 寫作助手，整合 DeepSeek / OpenAI 相容 API，提供文章校稿、語氣調整、段落級 AI 工具。
+沒有廣告，沒有 PRO ，無需其它帳號，只需要 AI API Key 即可
+
+目前僅測過 deepseek ，deepseek-chat 3.2預設 tokens 數量是 128K
 
 ## 功能
 
