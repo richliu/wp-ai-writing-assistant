@@ -2,14 +2,14 @@
 /**
  * Plugin Name: AI Writing Assistant
  * Description: AI 寫作助手，支援整篇校稿、語氣調整、自訂 Prompt，支援 DeepSeek API
- * Version:     1.4.0
- * Author:      mytool
+ * Version:     1.4.1
+ * Author:      richliu
  * Text Domain: ai-writing-assistant
  */
 
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-define( 'AI_WRITING_VERSION',    '1.4.0' );
+define( 'AI_WRITING_VERSION',    '1.4.1' );
 define( 'AI_WRITING_DIR',        plugin_dir_path( __FILE__ ) );
 define( 'AI_WRITING_URL',        plugin_dir_url( __FILE__ ) );
 
