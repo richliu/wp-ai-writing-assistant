@@ -1,0 +1,51 @@
+/* AI Writing Assistant — Admin Settings Page Styles */
+
+.ai-writing-admin .tab-content {
+    padding-top: 16px;
+}
+
+.ai-writing-admin #prompts-table td,
+.ai-writing-admin #prompts-table th {
+    vertical-align: middle;
+}
+
+/* Modal */
+#prompt-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.ai-modal-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, .5);
+}
+
+.ai-modal-box {
+    position: relative;
+    background: #fff;
+    border-radius: 6px;
+    padding: 24px 28px;
+    width: 600px;
+    max-width: 90vw;
+    max-height: 80vh;
+    overflow-y: auto;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, .2);
+    z-index: 1;
+}
+
+.ai-modal-box h3 {
+    margin-top: 0;
+}
+
+.ai-modal-box .form-table {
+    margin-top: 0;
+}
+
+.ai-modal-box textarea {
+    resize: vertical;
+}

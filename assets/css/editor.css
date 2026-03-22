@@ -1,0 +1,121 @@
+/* AI Writing Assistant — Block Editor Styles */
+
+/* Sidebar result box */
+.ai-writing-result-box {
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-height: 320px;
+    overflow-y: auto;
+    padding: 10px 12px;
+    background: #f6f7f7;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 13px;
+    line-height: 1.6;
+    margin-bottom: 8px;
+}
+
+/* Loading spinner centering in sidebar button */
+.components-button > .components-spinner {
+    margin: 0 auto;
+}
+
+/* Inline error below a paragraph block */
+.ai-writing-inline-error {
+    font-size: 12px;
+    padding: 4px 8px;
+    background: #ffe0e0;
+    border: 1px solid #e00;
+    border-radius: 3px;
+    margin-top: 4px;
+    color: #900;
+}
+
+/* Highlight paragraph block while AI is processing */
+.ai-writing-processing .block-editor-block-list__block {
+    opacity: 0.5;
+    pointer-events: none;
+}
+
+/* ── Diff View ─────────────────────────────────────── */
+
+/* Unified inline diff container */
+.ai-writing-diff-unified {
+    margin-bottom: 8px;
+}
+
+/* Fallback two-box diff (text too long for LCS) */
+.ai-writing-diff-fallback {
+    margin-bottom: 8px;
+}
+
+.ai-writing-diff-label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #757575;
+    margin-bottom: 4px;
+}
+
+/* Stats bar: X words removed / Y words added */
+.ai-writing-diff-stats {
+    display: flex;
+    gap: 10px;
+    font-size: 11px;
+    margin-bottom: 6px;
+}
+.ai-diff-stat-del { color: #82071e; font-weight: 600; }
+.ai-diff-stat-add { color: #116329; font-weight: 600; }
+
+/* Diff scroll box */
+.ai-writing-diff-box {
+    max-height: 500px;
+    overflow-y: auto;
+    padding: 8px 12px;
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 13px;
+    line-height: 1.8;
+    word-break: break-word;
+}
+
+/* Per-line rows in diff */
+.ai-writing-diff-box p { margin: 0 0 2px; padding: 3px 6px; border-radius: 3px; }
+.ai-writing-diff-box p:last-child { margin-bottom: 0; }
+
+/* Original line (light red background) */
+.ai-diff-line-old { background: #fff5f5; color: #333; }
+/* New line (light green background) */
+.ai-diff-line-new { background: #f0fff4; color: #333; }
+/* Note line (deleted / added label) */
+.ai-diff-line-note { color: #999; font-style: italic; font-size: 12px; }
+
+/* Separator between diff groups */
+.ai-diff-separator { border: none; border-top: 1px solid #eee; margin: 8px 0; }
+
+/* Inline word tokens inside a changed paragraph */
+.ai-diff-del {
+    background: #ffd7d5;
+    color: #82071e;
+    text-decoration: line-through;
+    border-radius: 2px;
+    padding: 0 1px;
+}
+.ai-diff-add {
+    background: #ccffd8;
+    color: #116329;
+    border-radius: 2px;
+    padding: 0 1px;
+}
+
+/* ── Inline diff preview (paragraph-tools) ─────────── */
+
+/* Constrain the block-level diff preview to match paragraph content width */
+.ai-diff-inline-preview {
+    max-width: var(--wp--style--global--content-size, 650px) !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+    box-sizing: border-box !important;
+}
