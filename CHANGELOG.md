@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.4.2
+- **Fix:** 段落工具 AI 修改預覽寬度：改在執行期量測 block 元素的寬度與左邊界套用到預覽框（ResizeObserver 跟著變），不再依賴 `--wp--style--global--content-size`（classic theme 沒有這個變數、且 editor.css 不會載入 iframe 編輯器）
+- **Fix:** 段落工具套用後吃掉連結與屬性：送出前把 inline HTML（`<a>`、`<strong>`、`<em>`、`<code>`、`<br>`…）換成 `[[n]]…[[/n]]` / `[[n/]]` 標記，AI 回來後再換回**原始標籤**（href/target/rel/class 全保留）；AI 弄丟或打亂的標記會在預覽中警告
+- **Fix:** 段落預覽 diff 中文改為逐字比對（原本以空白斷詞，中文整段變成一個 token 而整段刪除＋整段新增）
+
 ## 1.4.0
 - **Feat:** 「AI 標籤與分類」與「產生摘要」合併為單一面板，一個「AI 分析文章」按鍵同時呼叫 `suggest_meta` + `summarize`（`Promise.all` 並行），減少操作步驟
 - **Feat:** 建議標題改為 checkbox（預設勾選），套用時連同 tags + 分類一起處理，不再有獨立的「套用標題」按鈕

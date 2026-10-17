@@ -112,10 +112,7 @@
 
 /* ── Inline diff preview (paragraph-tools) ─────────── */
 
-/* Constrain the block-level diff preview to match paragraph content width */
+/* Width/offset is copied from the block element at runtime (paragraph-tools.js) */
 .ai-diff-inline-preview {
-    max-width: var(--wp--style--global--content-size, 650px) !important;
-    margin-left: auto !important;
-    margin-right: auto !important;
-    box-sizing: border-box !important;
+    box-sizing: border-box;
 }

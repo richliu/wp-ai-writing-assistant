@@ -56,6 +56,14 @@ class AI_Writing_API_Handler {
         }
 
         $system_prompt = $this->build_system_prompt( $prompt_id, $tone, $custom_prompt, $force_zh_tw );
+
+        // Paragraph tool replaces inline HTML (links, bold, etc.) with [[n]]…[[/n]] / [[n/]] markers
+        if ( $action === 'paragraph' && preg_match( '/\[\[\/?\d+\/?\]\]/', $content ) ) {
+            $system_prompt .= "\n重要：內文中的 [[1]]、[[/1]]、[[2/]] 這類標記代表原本的連結與格式，"
+                . "請原封不動保留每一個標記，並讓它們繼續包住對應的文字（[[n]] 與 [[/n]] 必須成對）。"
+                . "不要新增、刪除或改寫標記，也不要把它們轉成 Markdown 或 HTML。";
+        }
+
         $result        = $this->call_api( $system_prompt, $content );
 
         if ( is_wp_error( $result ) ) {
