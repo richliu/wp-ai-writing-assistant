@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.6.0
+- **Feat:** 段落工具新增「校稿整節」並設為選單第一項（預設）：從目前段落往上找最近的標題，校稿「該標題＋到下一個標題前的所有段落」（含清單項目），一次送出、一次預覽、一次採用
+  - 每段以 `[[§n]]` 標記送出，AI 回來後拆回各自的 block；段落數或順序被打亂時報錯、不套用
+  - 預覽只列出有修改的段落；連結/格式一樣以 `[[n]]` 標記保留
+- **Change:** 工具列圖示由齒輪改為校稿圖示（`editor-spellcheck`），單段的各 prompt 改列為「本段：…」
+
 ## 1.5.0
 - **Change:** DeepSeek 模型改為 `deepseek-flash`（V4.1 Flash）/ `deepseek-v4-pro`；`deepseek-chat` / `deepseek-reasoner` 已是官方宣布停用的舊別名
 - **Fix:** DeepSeek 請求固定帶 `thinking: {type: "disabled"}`。V4 預設思考，思考 token 計入 max_tokens，2048 時常整個用在思考而回傳空內容；非思考模式也讓 temperature 生效

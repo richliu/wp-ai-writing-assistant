@@ -2,14 +2,14 @@
 /**
  * Plugin Name: AI Writing Assistant
  * Description: AI 寫作助手，支援整篇校稿、語氣調整、自訂 Prompt，支援 DeepSeek API
- * Version:     1.5.0
+ * Version:     1.6.0
  * Author:      richliu
  * Text Domain: ai-writing-assistant
  */
 
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-define( 'AI_WRITING_VERSION',    '1.5.0' );
+define( 'AI_WRITING_VERSION',    '1.6.0' );
 define( 'AI_WRITING_DIR',        plugin_dir_path( __FILE__ ) );
 define( 'AI_WRITING_URL',        plugin_dir_url( __FILE__ ) );
 
@@ -67,7 +67,7 @@ class AI_Writing_Assistant {
             'ai-writing-paragraph-tools',
             AI_WRITING_URL . 'assets/js/paragraph-tools.js',
             [ 'wp-blocks', 'wp-hooks', 'wp-element', 'wp-components',
-              'wp-block-editor', 'wp-compose', 'wp-api-fetch' ],
+              'wp-block-editor', 'wp-compose', 'wp-api-fetch', 'wp-data' ],
             AI_WRITING_VERSION,
             true
         );

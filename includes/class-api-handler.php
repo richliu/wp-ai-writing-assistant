@@ -57,8 +57,15 @@ class AI_Writing_API_Handler {
 
         $system_prompt = $this->build_system_prompt( $prompt_id, $tone, $custom_prompt, $force_zh_tw );
 
-        // Paragraph tool replaces inline HTML (links, bold, etc.) with [[n]]…[[/n]] / [[n/]] markers
-        if ( $action === 'paragraph' && preg_match( '/\[\[\/?\d+\/?\]\]/', $content ) ) {
+        // Section tool: each block starts with [[§n]]; results are split back per block
+        if ( $action === 'section' ) {
+            $system_prompt .= "\n重要：內文由多個段落組成，每個段落開頭有 [[§1]]、[[§2]] 這類段落標記。"
+                . "請保留每一個段落標記、維持原本的順序與段落數，每個段落只修改它自己的內容，"
+                . "不要合併、拆分、增加或刪除段落。";
+        }
+
+        // Paragraph/section tools replace inline HTML (links, bold, etc.) with [[n]]…[[/n]] / [[n/]] markers
+        if ( in_array( $action, [ 'paragraph', 'section' ], true ) && preg_match( '/\[\[\/?\d+\/?\]\]/', $content ) ) {
             $system_prompt .= "\n重要：內文中的 [[1]]、[[/1]]、[[2/]] 這類標記代表原本的連結與格式，"
                 . "請原封不動保留每一個標記，並讓它們繼續包住對應的文字（[[n]] 與 [[/n]] 必須成對）。"
                 . "不要新增、刪除或改寫標記，也不要把它們轉成 Markdown 或 HTML。";

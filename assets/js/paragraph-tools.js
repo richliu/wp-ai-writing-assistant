@@ -10,8 +10,12 @@
     }                                    = wp.components;
     const { useState, useRef, useLayoutEffect, Fragment, createElement: el } = wp.element;
     const apiFetch                       = wp.apiFetch;
+    const { select, dispatch }           = wp.data;
 
     const SUPPORTED_BLOCKS = [ 'core/paragraph', 'core/heading', 'core/quote' ];
+    // Blocks whose `content` rich text gets proofread when doing a whole section
+    const TEXT_BLOCKS      = [ 'core/paragraph', 'core/heading', 'core/list-item' ];
+    const SECTION_MARK_RE  = /\[\[§(\d+)\]\]/g;
 
     // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -38,11 +42,11 @@
      * tags[n] keeps the exact original open/close tag (all attributes), so the
      * AI never sees or rewrites href/target/rel/class.
      */
-    function htmlToMarked(html) {
+    function htmlToMarked(html, startSeq) {
         const root = document.createElement('div');
         root.innerHTML = html;
         const tags = {};
-        let seq = 0;
+        let seq = startSeq || 0;
         const walk = (node) => {
             let out = '';
             node.childNodes.forEach((c) => {
@@ -61,7 +65,53 @@
             });
             return out;
         };
-        return { text: walk(root), tags };
+        const text = walk(root);
+        return { text, tags, nextSeq: seq };
+    }
+
+    /**
+     * The section around a block: from the nearest heading at/above it up to
+     * (not including) the next heading, among its sibling blocks. Returns the
+     * text blocks inside (recursing into lists/quotes/groups) in order.
+     */
+    function getSectionBlocks(clientId) {
+        const be    = select('core/block-editor');
+        const order = be.getBlockOrder(be.getBlockRootClientId(clientId));
+        const idx   = order.indexOf(clientId);
+        const isHeading = (id) => be.getBlockName(id) === 'core/heading';
+        let start = idx;
+        while (start > 0 && !isHeading(order[start])) start--;
+        let end = idx + 1;
+        while (end < order.length && !isHeading(order[end])) end++;
+
+        const out = [];
+        const collect = (block) => {
+            if (TEXT_BLOCKS.includes(block.name)) {
+                const html = String(block.attributes.content || '');
+                if (html.replace(/<[^>]*>/g, '').trim()) {
+                    out.push({ clientId: block.clientId, name: block.name, html });
+                }
+            }
+            (block.innerBlocks || []).forEach(collect);
+        };
+        order.slice(start, end).forEach((id) => collect(be.getBlock(id)));
+        return out;
+    }
+
+    /** Split a section result on its [[§n]] markers → { n: text } or null if the structure broke */
+    function splitSection(result, count) {
+        const parts = {};
+        const re    = new RegExp(SECTION_MARK_RE.source, 'g');
+        const hits  = [];
+        let m;
+        while ((m = re.exec(result))) hits.push({ n: m[1], at: m.index, end: re.lastIndex });
+        if (hits.length !== count) return null;
+        for (let i = 0; i < hits.length; i++) {
+            const n = hits[i].n;
+            if (parts[n] !== undefined || +n !== i + 1) return null;
+            parts[n] = result.slice(hits[i].end, i + 1 < hits.length ? hits[i + 1].at : result.length).trim();
+        }
+        return parts;
     }
 
     /**
@@ -159,13 +209,11 @@
                 return el(BlockEdit, props);
             }
 
-            const [isLoading, setIsLoading]             = useState(false);
-            const [error, setError]                     = useState('');
-            const [pendingResult, setPendingResult]     = useState('');
-            const [pendingHtml, setPendingHtml]         = useState('');
-            const [lostCount, setLostCount]             = useState(0);
-            const [originalContent, setOriginalContent] = useState('');
-            const panelRef                              = useRef(null);
+            const [isLoading, setIsLoading] = useState(false);
+            const [error, setError]         = useState('');
+            // pending: null | { scope: 'block'|'section', items: [{ clientId, label, oldPlain, newPlain, html, lost }] }
+            const [pending, setPending]     = useState(null);
+            const panelRef                  = useRef(null);
 
             // The preview is a sibling of the block element, outside any
             // layout/theme width rule — so measure the block and copy its box.
@@ -195,37 +243,28 @@
                     if (ro) ro.disconnect();
                     view.removeEventListener('resize', fit);
                 };
-            }, [pendingResult, props.clientId]);
+            }, [pending, props.clientId]);
 
-            const prompts = aiWritingData.prompts || [];
+            const prompts         = aiWritingData.prompts || [];
+            const defaultPromptId = (prompts.find(p => p.id === 'proofread') || prompts[0] || {}).id || 'proofread';
 
-            const processBlock = async (promptId) => {
-                const rawContent = String(props.attributes.content || '');
-                const marked     = htmlToMarked(rawContent);
-                const plainText  = stripMarkers(marked.text).trim();
-                if (!plainText) return;
+            const callAI = (content, action, promptId) => apiFetch({
+                path: '/ai-writing/v1/process',
+                method: 'POST',
+                data: {
+                    content,
+                    action,
+                    prompt_id:   promptId,
+                    force_zh_tw: aiWritingData.settings?.force_traditional_chinese ? '1' : '',
+                },
+            }).then(resp => (resp.result || '').trim());
 
+            const run = async (fn) => {
                 setIsLoading(true);
                 setError('');
-                setPendingResult('');
-
+                setPending(null);
                 try {
-                    const resp = await apiFetch({
-                        path: '/ai-writing/v1/process',
-                        method: 'POST',
-                        data: {
-                            content:     marked.text.trim(),
-                            action:      'paragraph',
-                            prompt_id:   promptId,
-                            force_zh_tw: aiWritingData.settings?.force_traditional_chinese ? '1' : '',
-                        },
-                    });
-                    const result = (resp.result || '').trim();
-                    const out    = markedToHtml(result, marked.tags);
-                    setOriginalContent(plainText);
-                    setPendingHtml(out.html);
-                    setLostCount(out.lost.length);
-                    setPendingResult(stripMarkers(result));
+                    await fn();
                 } catch (err) {
                     setError(err.message || '發生錯誤');
                 } finally {
@@ -233,23 +272,62 @@
                 }
             };
 
-            const handleAccept = () => {
-                props.setAttributes({ content: pendingHtml });
-                handleReject();
+            const toItem = (unit, marked, result) => {
+                const out = markedToHtml(result, marked.tags);
+                return {
+                    clientId: unit.clientId,
+                    label:    unit.name === 'core/heading' ? '標題' : '',
+                    oldPlain: stripMarkers(marked.text).trim(),
+                    newPlain: stripMarkers(result).trim(),
+                    html:     out.html,
+                    lost:     out.lost.length,
+                };
             };
 
-            const handleReject = () => {
-                setPendingResult('');
-                setPendingHtml('');
-                setLostCount(0);
-                setOriginalContent('');
+            // ── Single block ────────────────────────────────────────────────────
+            const processBlock = (promptId) => run(async () => {
+                const unit   = { clientId: props.clientId, name: props.name, html: String(props.attributes.content || '') };
+                const marked = htmlToMarked(unit.html);
+                if (!stripMarkers(marked.text).trim()) return;
+                const result = await callAI(marked.text.trim(), 'paragraph', promptId);
+                setPending({ scope: 'block', items: [ toItem(unit, marked, result) ] });
+            });
+
+            // ── Whole section: heading + everything up to the next heading ─────
+            const processSection = (promptId) => run(async () => {
+                const units = getSectionBlocks(props.clientId);
+                if (!units.length) return;
+                let seq = 0;
+                const marked = units.map((u) => {
+                    const m = htmlToMarked(u.html, seq);
+                    seq = m.nextSeq;
+                    return m;
+                });
+                const content = marked.map((m, i) => '[[§' + (i + 1) + ']] ' + m.text.trim()).join('\n\n');
+                const result  = await callAI(content, 'section', promptId);
+                const parts   = splitSection(result, units.length);
+                if (!parts) {
+                    throw new Error('AI 打亂了段落結構（段落標記遺失或合併），未套用。請重試，或改用單段校稿。');
+                }
+                const items = units
+                    .map((u, i) => toItem(u, marked[i], parts[i + 1]))
+                    .filter(it => it.newPlain !== it.oldPlain || it.lost);
+                setPending({ scope: 'section', items, total: units.length });
+            });
+
+            const handleReject = () => setPending(null);
+
+            const handleAccept = () => {
+                const { updateBlockAttributes } = dispatch('core/block-editor');
+                pending.items.forEach((it) => updateBlockAttributes(it.clientId, { content: it.html }));
+                handleReject();
             };
 
             // ── Toolbar ─────────────────────────────────────────────────────────
             const controls = el(ToolbarGroup, null,
                 isLoading
                     ? el(ToolbarButton, { icon: 'update-alt', label: 'AI 處理中…', disabled: true }, el(Spinner))
-                    : pendingResult
+                    : pending
                         ? el(Fragment, null,
                             el(ToolbarButton, {
                                 icon: 'yes-alt',
@@ -263,17 +341,28 @@
                             }),
                           )
                         : el(DropdownMenu, {
-                              icon: 'admin-generic',
-                              label: 'AI 段落工具',
-                              controls: prompts.map(p => ({
-                                  title: p.name,
-                                  onClick: () => processBlock(p.id),
-                              })),
+                              icon: 'editor-spellcheck',
+                              label: 'AI 校稿工具',
+                              controls: [
+                                  [ {
+                                      title: '校稿整節（預設）— 標題到下一個標題',
+                                      icon: 'editor-spellcheck',
+                                      onClick: () => processSection(defaultPromptId),
+                                  } ],
+                                  prompts.map(p => ({
+                                      title: '本段：' + p.name,
+                                      onClick: () => processBlock(p.id),
+                                  })),
+                              ],
                           }),
             );
 
             // ── Inline diff preview ──────────────────────────────────────────────
-            const diffPanel = pendingResult && el('div', {
+            const lostTotal = pending ? pending.items.reduce((n, it) => n + it.lost, 0) : 0;
+            const header    = pending && pending.scope === 'section'
+                ? 'AI 整節校稿預覽（' + pending.total + ' 段，' + pending.items.length + ' 段有修改）— 點工具列 ✓ 採用 或 ✕ 捨棄'
+                : 'AI 修改預覽 — 點工具列 ✓ 採用 或 ✕ 捨棄';
+            const diffPanel = pending && el('div', {
                 ref: panelRef,
                 style: {
                     border: '1px solid #ddd',
@@ -290,11 +379,22 @@
             },
                 el('div', {
                     style: { fontSize: '11px', fontWeight: '600', color: '#757575', marginBottom: '6px' },
-                }, 'AI 修改預覽 — 點工具列 ✓ 採用 或 ✕ 捨棄'),
-                lostCount > 0 && el('div', {
+                }, header),
+                lostTotal > 0 && el('div', {
                     style: { fontSize: '12px', color: '#900', marginBottom: '6px' },
-                }, '⚠ AI 弄丟了 ' + lostCount + ' 個連結/格式標記，採用後那些文字會變成純文字'),
-                el('p', { style: { margin: 0 } }, renderWordDiff(originalContent, pendingResult)),
+                }, '⚠ AI 弄丟了 ' + lostTotal + ' 個連結/格式標記，採用後那些文字會變成純文字'),
+                pending.items.length === 0
+                    ? el('p', { style: { margin: 0, color: '#757575' } }, 'AI 沒有修改任何內容。')
+                    : pending.items.map((it, i) => el('p', {
+                          key: it.clientId,
+                          style: {
+                              margin: 0,
+                              padding: i ? '6px 0 0' : 0,
+                              borderTop: i ? '1px dashed #e0d8b0' : 'none',
+                              marginTop: i ? '6px' : 0,
+                              fontWeight: it.label ? 600 : 'normal',
+                          },
+                      }, renderWordDiff(it.oldPlain, it.newPlain))),
             );
 
             return el(Fragment, null,
