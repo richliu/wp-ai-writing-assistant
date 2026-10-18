@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.5.0
+- **Change:** DeepSeek 模型改為 `deepseek-flash`（V4.1 Flash）/ `deepseek-v4-pro`；`deepseek-chat` / `deepseek-reasoner` 已是官方宣布停用的舊別名
+- **Fix:** DeepSeek 請求固定帶 `thinking: {type: "disabled"}`。V4 預設思考，思考 token 計入 max_tokens，2048 時常整個用在思考而回傳空內容；非思考模式也讓 temperature 生效
+- **Fix:** `finish_reason === "length"` 時回錯誤，不再把被截斷的校稿結果交給使用者套用（原本長文後半段會無聲消失）
+- **Change:** `max_tokens` 改為上限（預設 32768，設定頁上限 393216）；實際值依輸入長度自動計算：`max(4096, 1.5 × 字數 + 1024)`
+- **Change:** 「模型最大 Context」預設改為 1,600,000 字元（1M tokens）；API timeout 120s → 300s
+
 ## 1.4.2
 - **Fix:** 段落工具 AI 修改預覽寬度：改在執行期量測 block 元素的寬度與左邊界套用到預覽框（ResizeObserver 跟著變），不再依賴 `--wp--style--global--content-size`（classic theme 沒有這個變數、且 editor.css 不會載入 iframe 編輯器）
 - **Fix:** 段落工具套用後吃掉連結與屬性：送出前把 inline HTML（`<a>`、`<strong>`、`<em>`、`<code>`、`<br>`…）換成 `[[n]]…[[/n]]` / `[[n/]]` 標記，AI 回來後再換回**原始標籤**（href/target/rel/class 全保留）；AI 弄丟或打亂的標記會在預覽中警告

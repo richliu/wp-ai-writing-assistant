@@ -147,8 +147,8 @@ class AI_Writing_API_Handler {
     private function call_api( string $system_prompt, string $user_content ) {
         $provider = $this->settings->get( 'api_provider', 'deepseek' );
         $api_key  = $this->settings->get( 'api_key', '' );
-        $model    = $this->settings->get( 'model', 'deepseek-chat' );
-        $tokens   = (int) $this->settings->get( 'max_tokens', 2048 );
+        $model    = $this->settings->get( 'model', 'deepseek-flash' );
+        $cap      = (int) $this->settings->get( 'max_tokens', 32768 );
         $temp     = (float) $this->settings->get( 'temperature', 0.7 );
 
         if ( empty( $api_key ) ) {
@@ -168,7 +168,15 @@ class AI_Writing_API_Handler {
             return new WP_Error( 'unknown_provider', '未知的 API Provider', [ 'status' => 400 ] );
         }
 
-        $body = wp_json_encode( [
+        // Proofread/rewrite re-emits the whole text: ~0.6 token per 中文字, so
+        // 1.5 tokens/char + 1024 leaves headroom; floor 4096 covers 「展開段落」.
+        // The setting is only the upper bound.
+        $tokens = max( 4096, (int) ceil( mb_strlen( $user_content ) * 1.5 ) + 1024 );
+        if ( $cap > 0 ) {
+            $tokens = min( $tokens, $cap );
+        }
+
+        $payload = [
             'model'       => $model,
             'max_tokens'  => $tokens,
             'temperature' => $temp,
@@ -176,10 +184,16 @@ class AI_Writing_API_Handler {
                 [ 'role' => 'system',  'content' => $system_prompt ],
                 [ 'role' => 'user',    'content' => $user_content  ],
             ],
-        ] );
+        ];
+        // DeepSeek models think by default; reasoning tokens count against
+        // max_tokens and temperature is ignored. Editing tasks don't need it.
+        if ( $provider === 'deepseek' ) {
+            $payload['thinking'] = [ 'type' => 'disabled' ];
+        }
+        $body = wp_json_encode( $payload );
 
         $response = wp_remote_post( $endpoint, [
-            'timeout' => 120,
+            'timeout' => 300,
             'headers' => [
                 'Content-Type'  => 'application/json',
                 'Authorization' => 'Bearer ' . $api_key,
@@ -201,6 +215,11 @@ class AI_Writing_API_Handler {
         }
 
         $text = $data['choices'][0]['message']['content'] ?? '';
+        if ( ( $data['choices'][0]['finish_reason'] ?? '' ) === 'length' ) {
+            return new WP_Error( 'output_truncated',
+                "AI 輸出達到上限（max_tokens {$tokens}）被截斷，結果不完整，未套用。請調高設定頁的 Max Output Tokens，或改用逐段校稿。",
+                [ 'status' => 502 ] );
+        }
         if ( empty( $text ) ) {
             return new WP_Error( 'empty_response', 'API 回傳空內容', [ 'status' => 502 ] );
         }

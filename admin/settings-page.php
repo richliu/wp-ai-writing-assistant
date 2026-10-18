@@ -46,16 +46,16 @@ if ( ! current_user_can( 'manage_options' ) ) {
                 <th><label for="model">模型</label></th>
                 <td>
                     <input type="text" id="model" name="model"
-                           class="regular-text" placeholder="deepseek-chat">
-                    <p class="description">DeepSeek 預設：deepseek-chat；OpenAI 預設：gpt-4o</p>
+                           class="regular-text" placeholder="deepseek-flash">
+                    <p class="description">DeepSeek：deepseek-flash（預設）或 deepseek-v4-pro；OpenAI：gpt-4o。DeepSeek 一律以非思考模式呼叫。</p>
                 </td>
             </tr>
             <tr>
                 <th><label for="model_max_input_chars">模型最大 Context（字元）</label></th>
                 <td>
                     <input type="number" id="model_max_input_chars" name="model_max_input_chars"
-                           class="small-text" min="0" max="2000000" step="1000" value="131072">
-                    <p class="description">模型本身能接受的最大字元數（0 = 不限制）。</p>
+                           class="small-text" min="0" max="2000000" step="1000" value="1600000">
+                    <p class="description">模型本身能接受的最大字元數（0 = 不限制）。DeepSeek V4 為 1M tokens ≈ 1,600,000 中文字。</p>
                 </td>
             </tr>
             <tr>
@@ -69,8 +69,8 @@ if ( ! current_user_can( 'manage_options' ) ) {
             <tr>
                 <th><label for="max_tokens">Max Output Tokens</label></th>
                 <td>
-                    <input type="number" id="max_tokens" name="max_tokens" class="small-text" min="256" max="32768" value="2048">
-                    <p class="description">AI 回覆的最大 token 數。長文章校稿建議調高至 4096 以上。</p>
+                    <input type="number" id="max_tokens" name="max_tokens" class="small-text" min="256" max="393216" value="32768">
+                    <p class="description">AI 回覆 token 數的上限。實際送出的值依輸入長度自動計算（約 1.5 × 字數 + 1024，最少 4096），不超過此上限。中文約 0.6 token/字，32768 約可輸出 5 萬字。輸出被截斷時會報錯、不會套用。</p>
                 </td>
             </tr>
             <tr>

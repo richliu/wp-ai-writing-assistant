@@ -3,7 +3,7 @@
 專為個人用戶設計的簡單版本 AI 寫作助手，整合 DeepSeek / OpenAI 相容 API，提供文章校稿、語氣調整、段落級 AI 工具。
 沒有廣告，沒有 PRO ，無需其它帳號，只需要 AI API Key 即可
 
-目前僅測過 deepseek ，deepseek-chat 3.2預設 tokens 數量是 128K
+目前僅測過 deepseek，預設模型 `deepseek-flash`（V4.1 Flash，1M tokens context），一律以非思考模式呼叫
 
 ## 功能
 
@@ -27,8 +27,8 @@
 |---|---|
 | Provider | DeepSeek（預設）、OpenAI、Custom |
 | API Key | 填入各平台的 API Key |
-| Model | 例如 `deepseek-chat`、`gpt-4o` |
-| Max Tokens | 回應最大 token 數（預設 2048）|
+| Model | 例如 `deepseek-flash`、`deepseek-v4-pro`、`gpt-4o` |
+| Max Tokens | 回應 token 數上限（預設 32768）；實際值依輸入長度自動計算，輸出被截斷時報錯不套用 |
 | Temperature | 創意程度 0–2（預設 0.7）|
 | Custom Endpoint | 使用 OpenAI 相容 API 時填入 |
 
@@ -42,7 +42,7 @@
 
 - 申請：https://platform.deepseek.com/
 - 預設 Endpoint：`https://api.deepseek.com/v1/chat/completions`
-- 預設模型：`deepseek-chat`
+- 預設模型：`deepseek-flash`（`deepseek-chat` / `deepseek-reasoner` 為官方宣布停用的舊別名）
 
 ## 目錄結構
 

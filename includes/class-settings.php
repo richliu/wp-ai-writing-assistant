@@ -8,17 +8,17 @@ class AI_Writing_Settings {
     private $defaults = [
         'api_provider'             => 'deepseek',
         'api_key'                  => '',
-        'model'                    => 'deepseek-chat',
-        'max_tokens'               => 2048,
+        'model'                    => 'deepseek-flash',
+        'max_tokens'               => 32768,   // upper bound; actual value scales with input length
         'max_input_chars'          => 131072,
-        'model_max_input_chars'    => 131072,
+        'model_max_input_chars'    => 1600000, // 1M-token context ≈ 1.6M 中文字 (~0.6 token/字)
         'temperature'              => 0.7,
         'force_traditional_chinese' => false,
         'providers'    => [
             'deepseek' => [
                 'label'    => 'DeepSeek',
                 'endpoint' => 'https://api.deepseek.com/v1/chat/completions',
-                'models'   => [ 'deepseek-chat', 'deepseek-reasoner' ],
+                'models'   => [ 'deepseek-flash', 'deepseek-v4-pro' ],
             ],
             'openai' => [
                 'label'    => 'OpenAI',

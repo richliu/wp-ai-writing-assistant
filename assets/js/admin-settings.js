@@ -42,12 +42,12 @@
         apiFetch('/settings').done(function (data) {
             $('#api_provider').val(data.api_provider || 'deepseek').trigger('change');
             $('#model').val(data.model || '');
-            $('#max_tokens').val(data.max_tokens || 2048);
+            $('#max_tokens').val(data.max_tokens || 32768);
             $('#temperature').val(data.temperature || 0.7);
             $('#custom_endpoint').val(data.custom_endpoint || '');
             $('#force_traditional_chinese').prop('checked', !!data.force_traditional_chinese);
             $('#max_input_chars').val(data.max_input_chars ?? 131072);
-            $('#model_max_input_chars').val(data.model_max_input_chars ?? 131072);
+            $('#model_max_input_chars').val(data.model_max_input_chars ?? 1600000);
             // api_key is masked, leave input empty
         }).fail(function () {
             showNotice('載入設定失敗', 'error');
