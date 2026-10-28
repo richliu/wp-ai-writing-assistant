@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.8.0
+- **Feat:** 「AI 分析文章」新增「給 AI 的指令（選填）」欄位，例如「著重在貼文內容」；同時套用到標題、slug、標籤、分類（suggest_meta）與摘要（summarize）
+
 ## 1.7.1
 - **Docs:** README 更正為已測試 DeepSeek 與 Claude API
 

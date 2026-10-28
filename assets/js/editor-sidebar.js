@@ -462,6 +462,8 @@
         const [applySlug, setApplySlug]     = useState(true);
         const isPublished = useSelect(s => s('core/editor').getCurrentPostAttribute('status') === 'publish', []);
         // Sidebar override for max_input_chars
+        // Optional instruction applied to both suggest_meta and summarize
+        const [analyzeHint, setAnalyzeHint] = useState('');
         const [maxInputChars, setMaxInputChars] = useState(
             (aiWritingData?.settings?.max_input_chars) || 131072
         );
@@ -572,6 +574,7 @@
                             content:             truncated,
                             action:              'suggest_meta',
                             force_zh_tw:         forceZhTW ? '1' : '',
+                            custom_prompt:       analyzeHint,
                             existing_categories: allCats.map(c => c.name),
                         },
                     }),
@@ -583,6 +586,7 @@
                             action:      'summarize',
                             prompt_id:   sumPrompt?.id || 'summarize',
                             force_zh_tw: forceZhTW ? '1' : '',
+                            custom_prompt: analyzeHint,
                         },
                     }),
                 ]);
@@ -701,6 +705,13 @@
                 }),
                 el('span', { style: { fontSize: '11px', color: '#999' } }, '（0 = 不限）'),
             ),
+            el(TextareaControl, {
+                label: '給 AI 的指令（選填）',
+                help: '同時套用在標題、slug、標籤、分類與摘要，例如「著重在貼文內容」。',
+                value: analyzeHint,
+                onChange: setAnalyzeHint,
+                rows: 2,
+            }),
             el(Button, {
                 variant: 'secondary',
                 onClick: handleAnalyze,

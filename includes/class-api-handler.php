@@ -46,7 +46,7 @@ class AI_Writing_API_Handler {
         // suggest_meta: returns JSON { tags, categories } instead of plain text
         if ( $action === 'suggest_meta' ) {
             $existing_cats = $request->get_param( 'existing_categories' ) ?: [];
-            $system_prompt = $this->build_suggest_meta_prompt( $force_zh_tw, $existing_cats );
+            $system_prompt = $this->build_suggest_meta_prompt( $force_zh_tw, $existing_cats, $custom_prompt );
             $result = $this->call_api( $system_prompt, $content );
             if ( is_wp_error( $result ) ) return $result;
             // Strip markdown fences AI sometimes adds
@@ -95,7 +95,7 @@ class AI_Writing_API_Handler {
         ] );
     }
 
-    private function build_suggest_meta_prompt( bool $force_zh_tw = false, array $existing_cats = [] ): string {
+    private function build_suggest_meta_prompt( bool $force_zh_tw = false, array $existing_cats = [], string $custom_prompt = '' ): string {
         $p  = '你是一個 WordPress 內容分類助手。請根據文章內容，建議合適的標籤（tags）和分類（categories）。';
 
         if ( ! empty( $existing_cats ) ) {
@@ -109,6 +109,9 @@ class AI_Writing_API_Handler {
         $p .= "\n建議 3~6 個標籤，1~2 個分類，1 個簡潔有力的文章標題。";
         $p .= "\nslug 是文章網址用的英文連結：不要逐字翻譯標題，只取 3~5 個最核心的英文關鍵字（產品名、技術名詞、主題），"
             . "全小寫、以 - 連接、不含中文與標點，總長不超過 50 字元，例如 \"nvidia-gb200-liquid-cooling\"。";
+        if ( ! empty( trim( $custom_prompt ) ) ) {
+            $p .= "\n使用者額外要求（套用在標題、slug、標籤與分類，但仍須只輸出上述 JSON）：" . $custom_prompt;
+        }
         if ( $force_zh_tw ) {
             $p .= "\n請使用繁體中文。";
         }
