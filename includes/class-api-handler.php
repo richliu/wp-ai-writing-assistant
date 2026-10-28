@@ -35,6 +35,10 @@ class AI_Writing_API_Handler {
         } else {
             $max_input_chars = $req_max !== null ? (int) $req_max : 0;
         }
+        // Tag/category analysis only needs the text
+        if ( $action === 'suggest_meta' ) {
+            $content = $this->to_plain_text( $content );
+        }
         if ( $max_input_chars > 0 ) {
             $content = $this->truncate_content( $content, $max_input_chars );
         }
@@ -50,12 +54,19 @@ class AI_Writing_API_Handler {
             $parsed = json_decode( $clean, true );
             return rest_ensure_response( [
                 'title'      => $parsed['title']      ?? '',
+                'slug'       => sanitize_title( $parsed['slug'] ?? '' ),
                 'tags'       => $parsed['tags']       ?? [],
                 'categories' => $parsed['categories'] ?? [],
             ] );
         }
 
-        $system_prompt = $this->build_system_prompt( $prompt_id, $tone, $custom_prompt, $force_zh_tw );
+        $keep_links    = $action !== 'summarize';
+        $system_prompt = $this->build_system_prompt( $prompt_id, $tone, $custom_prompt, $force_zh_tw, $keep_links );
+        if ( ! $keep_links ) {
+            // Link-heavy posts otherwise yield a summary full of links the body already has
+            $system_prompt .= "\n摘要請聚焦文章本身的論點與結論，盡量不要放超連結：連結已經在內文裡，"
+                . "除非某個連結是理解重點不可或缺的（最多一個），否則只寫文字，不要附上連結或網址。";
+        }
 
         // Section tool: each block starts with [[§n]]; results are split back per block
         if ( $action === 'section' ) {
@@ -77,7 +88,11 @@ class AI_Writing_API_Handler {
             return $result;
         }
 
-        return rest_ensure_response( [ 'result' => $result ] );
+        return rest_ensure_response( [
+            'result'   => $result,
+            'provider' => $this->settings->get( 'api_provider', 'deepseek' ),
+            'model'    => $this->settings->get( 'model', '' ),
+        ] );
     }
 
     private function build_suggest_meta_prompt( bool $force_zh_tw = false, array $existing_cats = [] ): string {
@@ -90,15 +105,17 @@ class AI_Writing_API_Handler {
         }
 
         $p .= "\n\n只輸出純 JSON，不要有任何說明文字或 markdown code block，格式如下：";
-        $p .= "\n{\"title\":\"建議標題\",\"tags\":[\"標籤1\",\"標籤2\",\"標籤3\"],\"categories\":[\"分類名稱\"]}";
+        $p .= "\n{\"title\":\"建議標題\",\"slug\":\"english-keyword-slug\",\"tags\":[\"標籤1\",\"標籤2\",\"標籤3\"],\"categories\":[\"分類名稱\"]}";
         $p .= "\n建議 3~6 個標籤，1~2 個分類，1 個簡潔有力的文章標題。";
+        $p .= "\nslug 是文章網址用的英文連結：不要逐字翻譯標題，只取 3~5 個最核心的英文關鍵字（產品名、技術名詞、主題），"
+            . "全小寫、以 - 連接、不含中文與標點，總長不超過 50 字元，例如 \"nvidia-gb200-liquid-cooling\"。";
         if ( $force_zh_tw ) {
             $p .= "\n請使用繁體中文。";
         }
         return $p;
     }
 
-    private function build_system_prompt( string $prompt_id, string $tone, string $custom_prompt, bool $force_zh_tw = false ): string {
+    private function build_system_prompt( string $prompt_id, string $tone, string $custom_prompt, bool $force_zh_tw = false, bool $keep_links = true ): string {
         $base = '';
 
         $prompt_obj = $this->prompts->get_by_id( $prompt_id );
@@ -126,8 +143,8 @@ class AI_Writing_API_Handler {
             $base .= "\n額外要求：" . $custom_prompt;
         }
 
-        // Always preserve links
-        $base .= "\n重要：請保留文章中所有的超連結（HTML <a> 標籤及其 href 屬性），不要移除或修改連結。";
+        // Preserve links when the AI re-emits the article
+        if ( $keep_links ) $base .= "\n重要：請保留文章中所有的超連結（HTML <a> 標籤及其 href 屬性），不要移除或修改連結。";
 
         // Enforce Traditional Chinese (request param overrides global setting)
         $global_zh_tw = (bool) $this->settings->get( 'force_traditional_chinese', false );
@@ -136,6 +153,14 @@ class AI_Writing_API_Handler {
         }
 
         return $base;
+    }
+
+    /** Post HTML → plain text: drop block comments and tags, keep paragraph breaks */
+    private function to_plain_text( string $html ): string {
+        $text = preg_replace( '/<!--.*?-->/s', '', $html );
+        $text = preg_replace( '#</(p|h[1-6]|li|blockquote|pre|div|tr)>|<br\s*/?>#i', "$0\n", $text );
+        $text = html_entity_decode( wp_strip_all_tags( $text ), ENT_QUOTES, 'UTF-8' );
+        return trim( preg_replace( "/\n{3,}/", "\n\n", preg_replace( "/[ \t]+\n/", "\n", $text ) ) );
     }
 
     private function truncate_content( string $content, int $max_chars ): string {
@@ -164,6 +189,16 @@ class AI_Writing_API_Handler {
 
         $providers = $this->settings->get( 'providers', [] );
         $endpoint  = $this->settings->get( 'custom_endpoint', '' );
+        $label     = $providers[ $provider ]['label'] ?? $provider;
+
+        // Anthropic keys start with sk-ant-; catch a key saved under the wrong provider
+        $is_ant_key = strpos( $api_key, 'sk-ant-' ) === 0;
+        if ( $provider === 'claude' && ! $is_ant_key ) {
+            return new WP_Error( 'key_provider_mismatch', 'Provider 設為 Claude，但 API Key 不是 Anthropic 的 key（應以 sk-ant- 開頭）。', [ 'status' => 400 ] );
+        }
+        if ( in_array( $provider, [ 'deepseek', 'openai' ], true ) && $is_ant_key ) {
+            return new WP_Error( 'key_provider_mismatch', "API Key 是 Claude（sk-ant-）的，但 Provider 設為 {$label}。請到設定頁把 Provider 改成 Claude 並儲存。", [ 'status' => 400 ] );
+        }
 
         if ( $provider === 'custom' ) {
             if ( empty( $endpoint ) ) {
@@ -183,29 +218,53 @@ class AI_Writing_API_Handler {
             $tokens = min( $tokens, $cap );
         }
 
-        $payload = [
-            'model'       => $model,
-            'max_tokens'  => $tokens,
-            'temperature' => $temp,
-            'messages'    => [
-                [ 'role' => 'system',  'content' => $system_prompt ],
-                [ 'role' => 'user',    'content' => $user_content  ],
-            ],
-        ];
-        // DeepSeek models think by default; reasoning tokens count against
-        // max_tokens and temperature is ignored. Editing tasks don't need it.
-        if ( $provider === 'deepseek' ) {
-            $payload['thinking'] = [ 'type' => 'disabled' ];
+        $is_claude = $provider === 'claude';
+
+        if ( $is_claude ) {
+            // Anthropic Messages API: system is top-level; current models reject
+            // temperature and can't turn thinking off, so keep effort low for editing.
+            $payload = [
+                'model'      => $model,
+                'max_tokens' => $tokens,
+                'system'     => $system_prompt,
+                'messages'   => [
+                    [ 'role' => 'user', 'content' => $user_content ],
+                ],
+            ];
+            if ( preg_match( '/^claude-(opus|sonnet|haiku|fable)-5/', $model ) ) {
+                $payload['output_config'] = [ 'effort' => 'low' ];
+            }
+            $headers = [
+                'Content-Type'      => 'application/json',
+                'x-api-key'         => $api_key,
+                'anthropic-version' => '2023-06-01',
+            ];
+        } else {
+            $payload = [
+                'model'       => $model,
+                'max_tokens'  => $tokens,
+                'temperature' => $temp,
+                'messages'    => [
+                    [ 'role' => 'system',  'content' => $system_prompt ],
+                    [ 'role' => 'user',    'content' => $user_content  ],
+                ],
+            ];
+            // DeepSeek models think by default; reasoning tokens count against
+            // max_tokens and temperature is ignored. Editing tasks don't need it.
+            if ( $provider === 'deepseek' ) {
+                $payload['thinking'] = [ 'type' => 'disabled' ];
+            }
+            $headers = [
+                'Content-Type'  => 'application/json',
+                'Authorization' => 'Bearer ' . $api_key,
+            ];
         }
         $body = wp_json_encode( $payload );
 
         $response = wp_remote_post( $endpoint, [
             'timeout' => 300,
-            'headers' => [
-                'Content-Type'  => 'application/json',
-                'Authorization' => 'Bearer ' . $api_key,
-            ],
-            'body' => $body,
+            'headers' => $headers,
+            'body'    => $body,
         ] );
 
         if ( is_wp_error( $response ) ) {
@@ -218,11 +277,25 @@ class AI_Writing_API_Handler {
 
         if ( $status_code !== 200 ) {
             $msg = $data['error']['message'] ?? $raw_body;
-            return new WP_Error( 'api_error', "API 回傳錯誤 {$status_code}: {$msg}", [ 'status' => 502 ] );
+            return new WP_Error( 'api_error', "{$label}（{$model}）API 回傳錯誤 {$status_code}: {$msg}", [ 'status' => 502 ] );
         }
 
-        $text = $data['choices'][0]['message']['content'] ?? '';
-        if ( ( $data['choices'][0]['finish_reason'] ?? '' ) === 'length' ) {
+        if ( $is_claude ) {
+            // content may start with (empty) thinking blocks; join the text blocks
+            $text = '';
+            foreach ( $data['content'] ?? [] as $block ) {
+                if ( ( $block['type'] ?? '' ) === 'text' ) $text .= $block['text'];
+            }
+            $stop = $data['stop_reason'] ?? '';
+            if ( $stop === 'refusal' ) {
+                return new WP_Error( 'api_refusal', 'Claude 拒絕處理此內容（stop_reason: refusal）。', [ 'status' => 502 ] );
+            }
+            $truncated = $stop === 'max_tokens';
+        } else {
+            $text      = $data['choices'][0]['message']['content'] ?? '';
+            $truncated = ( $data['choices'][0]['finish_reason'] ?? '' ) === 'length';
+        }
+        if ( $truncated ) {
             return new WP_Error( 'output_truncated',
                 "AI 輸出達到上限（max_tokens {$tokens}）被截斷，結果不完整，未套用。請調高設定頁的 Max Output Tokens，或改用逐段校稿。",
                 [ 'status' => 502 ] );

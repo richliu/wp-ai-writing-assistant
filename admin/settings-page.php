@@ -23,6 +23,7 @@ if ( ! current_user_can( 'manage_options' ) ) {
                     <select id="api_provider" name="api_provider">
                         <option value="deepseek">DeepSeek</option>
                         <option value="openai">OpenAI</option>
+                        <option value="claude">Claude（Anthropic）</option>
                         <option value="custom">Custom（OpenAI 相容）</option>
                     </select>
                 </td>
@@ -38,7 +39,7 @@ if ( ! current_user_can( 'manage_options' ) ) {
                 <th><label for="api_key">API Key</label></th>
                 <td>
                     <input type="password" id="api_key" name="api_key"
-                           class="regular-text" placeholder="sk-...">
+                           class="regular-text" placeholder="sk-... / sk-ant-...">
                     <p class="description">留空則不修改現有 Key</p>
                 </td>
             </tr>
@@ -47,7 +48,7 @@ if ( ! current_user_can( 'manage_options' ) ) {
                 <td>
                     <input type="text" id="model" name="model"
                            class="regular-text" placeholder="deepseek-flash">
-                    <p class="description">DeepSeek：deepseek-flash（預設）或 deepseek-v4-pro；OpenAI：gpt-4o。DeepSeek 一律以非思考模式呼叫。</p>
+                    <p class="description">DeepSeek：deepseek-flash（預設）或 deepseek-v4-pro；OpenAI：gpt-4o；Claude：claude-opus-5-5、claude-sonnet-5-5、claude-haiku-5-5（effort 固定 low，不送 temperature）。DeepSeek 一律以非思考模式呼叫。</p>
                 </td>
             </tr>
             <tr>

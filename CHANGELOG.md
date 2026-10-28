@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.7.0
+- **Feat:** 新增 Claude（Anthropic）provider：Messages API（`/v1/messages`），模型 `claude-opus-5-5` / `claude-sonnet-5-5` / `claude-haiku-5-5`
+  - 不送 `temperature`（新模型會回 400）；Claude 5 系列固定 `output_config.effort: low`
+  - 解析 `content` 中的 text blocks；`stop_reason` 為 `max_tokens` 時報截斷、`refusal` 時報錯
+- **Feat:** AI 摘要新增「一鍵更新頂部＋摘要」，同時寫入文章頂部段落與 excerpt；另有「只更新文章頂部」/「只設為文章摘要」
+  - 頂部摘要段落帶 `ai-summary` class，再次執行會更新該段，不再重複插入
+  - 寫入頂部或摘要後，側邊欄的 AI 摘要保留不清除，只有按「捨棄」才會移除
+- **Feat:** AI 分析文章新增「建議英文連結（slug）」：取 3~5 個英文關鍵字（不逐字翻譯中文標題），可直接編輯，勾選後隨「套用選取的建議」寫入文章網址
+  - 已發佈文章預設不勾選並提示（改網址會讓舊連結失效）；前後端都會正規化為小寫 `a-z0-9-`
+- **Change:** 摘要 prompt 不再附加「保留所有超連結」，改為要求聚焦重點、盡量不放連結（除非理解重點不可或缺，最多一個），避免連結多的文章產生滿是連結的摘要；不會強制移除 AI 給的連結
+- **Fix:** 設定頁表單有未儲存的修改時，「測試連線」改為提示先儲存（原本測的是舊的已儲存設定，會誤報成功）；成功時顯示實際使用的 Provider / 模型
+- **Fix:** API Key 與 Provider 不符時（`sk-ant-` key 配 DeepSeek/OpenAI，或 Claude 配非 `sk-ant-` key）直接報錯說明；API 錯誤訊息前加上 Provider 與模型名稱
+- **Change:** 標籤/分類分析（suggest_meta）改送純文字，去除 HTML 與 block 註解
+
 ## 1.6.0
 - **Feat:** 段落工具新增「校稿整節」並設為選單第一項（預設）：從目前段落往上找最近的標題，校稿「該標題＋到下一個標題前的所有段落」（含清單項目），一次送出、一次預覽、一次採用
   - 每段以 `[[§n]]` 標記送出，AI 回來後拆回各自的 block；段落數或順序被打亂時報錯、不套用

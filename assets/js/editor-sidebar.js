@@ -9,7 +9,7 @@
         Spinner, Notice, Flex, FlexItem, ToggleControl,
     }                                                    = wp.components;
     const { useState, useEffect, useRef, createElement: el } = wp.element;
-    const { select, dispatch }                           = wp.data;
+    const { select, dispatch, useSelect }                = wp.data;
     const apiFetch                                       = wp.apiFetch;
 
     const TONES = [
@@ -66,6 +66,34 @@
         // Links: [text](url)
         out = out.replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g, '<a href="$2">$1</a>');
         return out;
+    }
+
+    /**
+     * Put the AI summary at the top of the post. The block carries the
+     * `ai-summary` class so re-running replaces it instead of stacking copies.
+     */
+    const SUMMARY_CLASS = 'ai-summary';
+    function upsertTopSummary(text) {
+        // Keep any link the AI chose to include; turn Markdown links/bold into HTML
+        const html = markdownToHtml(text.trim()).replace(/\n+/g, '<br>');
+        const be = wp.data.select('core/block-editor');
+        const existing = be.getBlocks().find(b =>
+            b.name === 'core/paragraph' &&
+            (b.attributes.className || '').split(/\s+/).includes(SUMMARY_CLASS));
+        if (existing) {
+            wp.data.dispatch('core/block-editor').updateBlockAttributes(existing.clientId, { content: html });
+        } else {
+            const block = wp.blocks.createBlock('core/paragraph', { content: html, className: SUMMARY_CLASS });
+            wp.data.dispatch('core/block-editor').insertBlock(block, 0);
+        }
+    }
+
+    /** Normalise to a WordPress-style English slug: lowercase a-z0-9 joined by '-' */
+    function toSlug(str) {
+        return String(str || '').toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-+|-+$/g, '')
+            .slice(0, 60).replace(/-+$/, '');
     }
 
     // ── HTML escape helper ────────────────────────────────────────────────────
@@ -429,6 +457,10 @@
         const [sumResult,  setSumResult]    = useState('');
         const [sumError,   setSumError]     = useState('');
         const [applyTitle, setApplyTitle]   = useState(true);
+        // English slug suggestion (editable)
+        const [sugSlug,   setSugSlug]       = useState('');
+        const [applySlug, setApplySlug]     = useState(true);
+        const isPublished = useSelect(s => s('core/editor').getCurrentPostAttribute('status') === 'publish', []);
         // Sidebar override for max_input_chars
         const [maxInputChars, setMaxInputChars] = useState(
             (aiWritingData?.settings?.max_input_chars) || 131072
@@ -512,6 +544,7 @@
             setIsLoading(true);
             setError('');
             setSugTitle('');
+            setSugSlug('');
             setSugTagNames([]);
             setSugCatNames([]);
             setSelectedSugTagNames(new Set());
@@ -527,6 +560,8 @@
             setSumResult('');
             setSumError('');
             setApplyTitle(true);
+            // Changing a published post's URL breaks existing links: opt-in only
+            setApplySlug(!isPublished);
             try {
                 const truncated = maxInputChars > 0 ? content.slice(0, maxInputChars) : content;
                 const [metaResp, sumResp] = await Promise.all([
@@ -554,6 +589,7 @@
                 const sugTags = metaResp.tags || [];
                 const sugCats = metaResp.categories || [];
                 setSugTitle(metaResp.title || '');
+                setSugSlug(metaResp.slug || '');
                 setSugTagNames(sugTags);
                 setSugCatNames(sugCats);
                 // Pre-select all suggested tags
@@ -581,6 +617,11 @@
                 // ── Title ─────────────────────────────────────────────────────
                 if (applyTitle && sugTitle) {
                     dispatch('core/editor').editPost({ title: sugTitle });
+                }
+                // ── Slug ──────────────────────────────────────────────────────
+                const slug = toSlug(sugSlug);
+                if (applySlug && slug) {
+                    dispatch('core/editor').editPost({ slug });
                 }
                 // ── Tags ──────────────────────────────────────────────────────
                 const toAddNames = sugTagNames.filter(n => selectedSugTagNames.has(n));
@@ -638,8 +679,8 @@
         );
         const allOtherCats = allCats.filter(c => !sugCatIdSet.has(c.id));
 
-        const hasSuggestions = sugTitle || sugTagNames.length > 0 || sugCatObjs.length > 0;
-        const canApply = (applyTitle && !!sugTitle) || selectedSugTagNames.size > 0 || selectedSugCatIds.size > 0;
+        const hasSuggestions = sugTitle || sugSlug || sugTagNames.length > 0 || sugCatObjs.length > 0;
+        const canApply = (applyTitle && !!sugTitle) || (applySlug && !!toSlug(sugSlug)) || selectedSugTagNames.size > 0 || selectedSugCatIds.size > 0;
 
         const labelSt  = { fontSize: '11px', fontWeight: '600', color: '#757575', display: 'block', marginBottom: '5px' };
         const secSt    = { marginBottom: '16px' };
@@ -687,6 +728,28 @@
                         }),
                         el('span', { style: { fontSize: '13px', color: '#333', lineHeight: '1.5' } }, sugTitle),
                     ),
+                ),
+
+                // English slug (editable, keyword-based)
+                sugSlug && el('div', { style: { marginBottom: '10px' } },
+                    el('span', { style: labelSt }, '建議英文連結（slug）'),
+                    el('div', { style: { display: 'flex', alignItems: 'center', gap: '8px' } },
+                        el('input', {
+                            type: 'checkbox',
+                            checked: applySlug,
+                            onChange: () => setApplySlug(v => !v),
+                            style: { flexShrink: 0 },
+                        }),
+                        el('input', {
+                            type: 'text',
+                            value: sugSlug,
+                            onChange: e => setSugSlug(e.target.value),
+                            onBlur: () => setSugSlug(v => toSlug(v)),
+                            style: { flex: 1, minWidth: 0, fontSize: '12px', fontFamily: 'monospace' },
+                        }),
+                    ),
+                    isPublished && el('p', { style: { fontSize: '11px', color: '#b26200', margin: '4px 0 0' } },
+                        '文章已發佈：更改連結會讓舊網址失效，預設不套用。'),
                 ),
 
                 // Suggested tags (toggleable chips, pre-selected)
@@ -750,18 +813,24 @@
                             variant: 'primary',
                             size: 'small',
                             onClick: () => {
-                                const newBlock = wp.blocks.createBlock('core/paragraph', { content: sumResult });
-                                dispatch('core/block-editor').insertBlock(newBlock, 0);
-                                setSumResult('');
+                                upsertTopSummary(sumResult);
+                                dispatch('core/editor').editPost({ excerpt: sumResult });
                             },
-                        }, '插入到文章頂部'),
+                        }, '一鍵更新頂部＋摘要'),
+                    ),
+                    el(FlexItem, null,
+                        el(Button, {
+                            variant: 'secondary',
+                            size: 'small',
+                            onClick: () => upsertTopSummary(sumResult),
+                        }, '只更新文章頂部'),
                     ),
                     el(FlexItem, null,
                         el(Button, {
                             variant: 'secondary',
                             size: 'small',
                             onClick: () => dispatch('core/editor').editPost({ excerpt: sumResult }),
-                        }, '設定為文章摘要'),
+                        }, '只設為文章摘要'),
                     ),
                     el(FlexItem, null,
                         el(Button, {

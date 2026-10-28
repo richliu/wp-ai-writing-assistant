@@ -25,6 +25,11 @@ class AI_Writing_Settings {
                 'endpoint' => 'https://api.openai.com/v1/chat/completions',
                 'models'   => [ 'gpt-4o', 'gpt-4o-mini', 'gpt-3.5-turbo' ],
             ],
+            'claude' => [
+                'label'    => 'Claude (Anthropic)',
+                'endpoint' => 'https://api.anthropic.com/v1/messages',
+                'models'   => [ 'claude-opus-5-5', 'claude-sonnet-5-5', 'claude-haiku-5-5' ],
+            ],
             'custom' => [
                 'label'    => 'Custom (OpenAI 相容)',
                 'endpoint' => '',

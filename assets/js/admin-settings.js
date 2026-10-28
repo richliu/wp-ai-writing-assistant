@@ -37,6 +37,10 @@
         $('#row-custom-endpoint').toggle($(this).val() === 'custom');
     });
 
+    // 「測試連線」測的是已儲存的設定；表單有未儲存的修改時先提醒
+    let apiDirty = false;
+    $('#tab-api').on('input change', 'input, select', () => { apiDirty = true; });
+
     // ── Load API settings ───────────────────────────────────────────────────
     function loadSettings() {
         apiFetch('/settings').done(function (data) {
@@ -49,6 +53,7 @@
             $('#max_input_chars').val(data.max_input_chars ?? 131072);
             $('#model_max_input_chars').val(data.model_max_input_chars ?? 1600000);
             // api_key is masked, leave input empty
+            apiDirty = false;
         }).fail(function () {
             showNotice('載入設定失敗', 'error');
         });
@@ -73,6 +78,7 @@
             .done(() => {
                 showNotice('API 設定已儲存！');
                 $('#api_key').val(''); // clear after save
+                apiDirty = false;
             })
             .fail(xhr => showNotice('儲存失敗：' + (xhr.responseJSON?.message || '未知錯誤'), 'error'));
     });
@@ -80,13 +86,18 @@
     // ── Test API connection ─────────────────────────────────────────────────
     $('#btn-test-api').on('click', function () {
         const $result = $('#test-api-result');
-        $result.text('測試中…');
+        if (apiDirty) {
+            $result.css('color', '#b26200').text('設定尚未儲存：測試連線用的是已儲存的設定，請先按「儲存 API 設定」。');
+            return;
+        }
+        $result.css('color', '').text('測試中…');
         apiFetch('/process', 'POST', {
             content: '這是一段測試文字。',
             action: 'proofread',
             prompt_id: 'proofread',
         })
-            .done(() => $result.css('color', 'green').text('✓ 連線成功！'))
+            .done(data => $result.css('color', 'green').text(
+                '✓ 連線成功！（' + $('#api_provider option[value="' + data.provider + '"]').text() + ' / ' + data.model + '）'))
             .fail(xhr => $result.css('color', 'red').text('✗ 失敗：' + (xhr.responseJSON?.message || '請確認 API Key')));
     });
 
