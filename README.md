@@ -3,7 +3,7 @@
 專為個人用戶設計的簡單版本 AI 寫作助手，整合 DeepSeek / OpenAI 相容 API / Claude API，提供文章校稿、語氣調整、段落級 AI 工具。
 沒有廣告，沒有 PRO ，無需其它帳號，只需要 AI API Key 即可
 
-目前僅測過 deepseek，預設模型 `deepseek-flash`（V4.1 Flash，1M tokens context），一律以非思考模式呼叫
+目前測過 DeepSeek 與 Claude API。DeepSeek 預設模型 `deepseek-flash`（V4.1 Flash，1M tokens context），一律以非思考模式呼叫；Claude 建議 `claude-opus-5-5` / `claude-sonnet-5-5` / `claude-haiku-5-5`
 
 ## 功能
 

@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.7.1
+- **Docs:** README 更正為已測試 DeepSeek 與 Claude API
+
 ## 1.7.0
 - **Feat:** 新增 Claude（Anthropic）provider：Messages API（`/v1/messages`），模型 `claude-opus-5-5` / `claude-sonnet-5-5` / `claude-haiku-5-5`
   - 不送 `temperature`（新模型會回 400）；Claude 5 系列固定 `output_config.effort: low`
